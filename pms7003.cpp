@@ -34,7 +34,7 @@ bool PmsProcess(uint8_t b)
     switch (state.state) {
     // wait for BEGIN1 byte
     case BEGIN1:
-        state.sum = 0;
+        state.sum = b;
         if (b == 0x42) {
             state.state = BEGIN2;
         }
@@ -51,10 +51,10 @@ bool PmsProcess(uint8_t b)
         state.sum += b;
         if (b <= state.size) {
             state.idx = 0;
+            state.len = b;
             state.state = DATA;
         } else {
             // bogus length
-            state.len = b;
             state.state = BEGIN1;
         }
         break;
