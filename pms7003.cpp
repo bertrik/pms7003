@@ -89,5 +89,30 @@ bool PmsProcess(uint8_t b)
     return false;
 }
 
+static uint16_t get(uint8_t *buf, int idx)
+{
+    uint16_t data;
+    data = buf[idx] << 8;
+    data += buf[idx + 1];
+    return data;
+}
+
+void PmsParse(pms_meas_t *meas)
+{
+    meas->concPM1_0_CF1 = get(state.buf, 0);
+    meas->concPM2_5_CF1 = get(state.buf, 2);
+    meas->concPM10_0_CF1 = get(state.buf, 4);
+    meas->concPM1_0_amb = get(state.buf, 6);
+    meas->concPM2_5_amb = get(state.buf, 8);
+    meas->concPM10_0_amb = get(state.buf, 10);
+    meas->rawGt0_3um = get(state.buf, 12);
+    meas->rawGt0_5um = get(state.buf, 14);
+    meas->rawGt1_0um = get(state.buf, 16);
+    meas->rawGt2_5um = get(state.buf, 18);
+    meas->rawGt5_0um = get(state.buf, 20);
+    meas->rawGt10_0um = get(state.buf, 22);
+    meas->version = state.buf[23];
+    meas->errorCode  = state.buf[24];
+}
 
 

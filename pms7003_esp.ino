@@ -26,6 +26,7 @@ static PubSubClient mqttClient(wifiClient);
 
 static char esp_id[16];
 static uint8_t buf[32];
+static pms_meas_t meas;
 
 void setup(void)
 {
@@ -68,8 +69,15 @@ void loop(void)
     while (sensor.available()) {
         uint8_t c = sensor.read();
         if (PmsProcess(c)) {
-            // got a new frame
-            // TODO parse it, etc.
+            // parse it
+            PmsParse(&meas);
+            // publish it
+            mqtt_send(MQTT_TOPIC "/0.3",  meas.rawGt0_3um, "ug/m3");
+            mqtt_send(MQTT_TOPIC "/0.5",  meas.rawGt0_5um, "ug/m3");
+            mqtt_send(MQTT_TOPIC "/1.0",  meas.rawGt1_0um, "ug/m3");
+            mqtt_send(MQTT_TOPIC "/2.5",  meas.rawGt2_5um, "ug/m3");
+            mqtt_send(MQTT_TOPIC "/5.0",  meas.rawGt5_0um, "ug/m3");
+            mqtt_send(MQTT_TOPIC "/10.0", meas.rawGt10_0um,"ug/m3");
         }
     }
 }
