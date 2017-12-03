@@ -7,7 +7,8 @@
 typedef enum {
     BEGIN1,
     BEGIN2,
-    LENGTH,
+    LENGTH1,
+    LENGTH2,
     DATA,
     CHECK1,
     CHECK2
@@ -46,16 +47,21 @@ bool PmsProcess(uint8_t b)
     case BEGIN2:
         state.sum += b;
         if (b == 0x4D) {
-            state.state = LENGTH;
+            state.state = LENGTH1;
         }
         break;
     // verify data length
-    case LENGTH:
+    case LENGTH1:
         state.sum += b;
-        if (b <= state.size) {
+        state.len = b << 8;
+        state.state = LENGTH2;
+        break;
+    case LENGTH2:
+        state.sum += b;
+        state.len += b;
+        state.len -= 2;     // exclude checksum bytes
+        if (state.len <= state.size) {
             state.idx = 0;
-            // exclude checksum bytes
-            state.len = b - 2;
             state.state = DATA;
         } else {
             // bogus length
