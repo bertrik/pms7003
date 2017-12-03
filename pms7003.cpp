@@ -25,8 +25,11 @@ static TState state;
 
 void PmsInit(uint8_t *buf, int size)
 {
+    state.state = BEGIN1;
     state.buf = buf;
     state.size = size;
+    state.idx = state.len = 0;
+    state.chk = state.sum = 0;
 }
 
 bool PmsProcess(uint8_t b)
