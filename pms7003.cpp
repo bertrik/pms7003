@@ -54,7 +54,8 @@ bool PmsProcess(uint8_t b)
         state.sum += b;
         if (b <= state.size) {
             state.idx = 0;
-            state.len = b;
+            // exclude checksum bytes
+            state.len = b - 2;
             state.state = DATA;
         } else {
             // bogus length
