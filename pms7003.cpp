@@ -24,6 +24,11 @@ typedef struct {
 
 static TState state;
 
+/**
+    Initializes the measurement data state machine.
+    @param[in] buf the buffer to be used by the parser
+    @param[in] size the size of the buffer
+ */
 void PmsInit(uint8_t *buf, int size)
 {
     state.state = BEGIN1;
@@ -33,6 +38,11 @@ void PmsInit(uint8_t *buf, int size)
     state.chk = state.sum = 0;
 }
 
+/**
+    Processes one byte in the measurement data state machine.
+    @param[in] b the byte
+    @return true if a full message was received
+ */
 bool PmsProcess(uint8_t b)
 {
     switch (state.state) {
@@ -103,6 +113,10 @@ static uint16_t get(uint8_t *buf, int idx)
     return data;
 }
 
+/**
+    Parses a complete measurement data frame into a structure.
+    @param[out] meas the parsed measurement data
+ */
 void PmsParse(pms_meas_t *meas)
 {
     meas->concPM1_0_CF1 = get(state.buf, 0);
@@ -121,6 +135,14 @@ void PmsParse(pms_meas_t *meas)
     meas->errorCode  = state.buf[24];
 }
 
+/**
+    Creates a command buffer to send.
+    @param[in] buf the command buffer
+    @param[in] size the size of the command buffer, should be at least 7 bytes
+    @param[in] cmd the command byte
+    @param[in] data the data field
+    @return the length of the command buffer, or 0 if the size was too small
+*/
 int PmsCreateCmd(uint8_t *buf, int size, uint8_t cmd, uint16_t data)
 {
     if (size < 7) {
