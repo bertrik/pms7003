@@ -24,3 +24,8 @@ bool PmsProcess(uint8_t b);
 void PmsParse(pms_meas_t *meas);
 int  PmsCreateCmd(uint8_t *buf, int size, uint8_t cmd, uint16_t data);
 
+// known command bytes
+#define PMS_CMD_AUTO_MANUAL 0xE1    // data=0: perform measurement manually, data=1: perform measurement automatically
+#define PMS_CMD_TRIG_MANUAL 0xE2    // trigger a manual measurement
+#define PMS_CMD_ON_STANDBY  0xE4    // data=0: go to standby mode, data=1: go to normal mode
+
