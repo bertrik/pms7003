@@ -121,4 +121,24 @@ void PmsParse(pms_meas_t *meas)
     meas->errorCode  = state.buf[24];
 }
 
+int PmsCreateCmd(uint8_t *buf, int size, uint8_t cmd, uint16_t data)
+{
+    if (size < 7) {
+        return 0;
+    }
+
+    int idx = 0;
+    buf[idx++] = 0x42;
+    buf[idx++] = 0x4d;
+    buf[idx++] = cmd;
+    buf[idx++] = (data >> 8) & 0xFF;
+    buf[idx++] = (data >> 0) & 0xFF;
+    int sum = 0;
+    for (int i = 0; i < idx; i++) {
+        sum += buf[i];
+    }
+    buf[idx++] = (sum  >> 8) & 0xFF;
+    buf[idx++] = (sum  >> 0) & 0xFF;
+    return idx;
+}
 
