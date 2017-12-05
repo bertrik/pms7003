@@ -15,6 +15,8 @@
 #define PIN_RX  D1
 #define PIN_TX  D2
 
+#define MEASURE_INTERVAL_MS 10000
+
 #define MQTT_HOST   "mosquitto.space.revspace.nl"
 #define MQTT_PORT   1883
 #define MQTT_TOPIC  "revspace/sensors/dust/pms7003"
@@ -24,32 +26,45 @@ static WiFiClient wifiClient;
 static WiFiManager wifiManager;
 static PubSubClient mqttClient(wifiClient);
 
-static char esp_id[16];
-static uint8_t buf[32];
+static char device_name[20];
+
+static uint8_t rxbuf[32];
+static int rxlen;
+static uint8_t txbuf[8];
+static int txlen;
+
 static pms_meas_t meas;
+static unsigned long last_sent;
 
 void setup(void)
 {
+    // welcome message
     Serial.begin(115200);
-    Serial.println("PMS7003 ESP reader\n");
+    Serial.println("PMS7003 ESP reader");
 
-    sprintf(esp_id, "%08X", ESP.getChipId());
-    Serial.print("ESP ID: ");
-    Serial.println(esp_id);
+    // get ESP id
+    sprintf(device_name, "PMS7003-%08X", ESP.getChipId());
+    Serial.print("Device name: ");
+    Serial.println(device_name);
 
-    sensor.begin(9600);
-
+    // connect to wifi or set up captive portal
     Serial.println("Starting WIFI manager ...");
-    wifiManager.autoConnect("ESP-PMS7003");
+    wifiManager.autoConnect(device_name);
 
-    PmsInit(buf, sizeof(buf));
+    // initialize the sensor, put it in manual mode
+    sensor.begin(9600);
+    txlen = PmsCreateCmd(txbuf, sizeof(txbuf), PMS_CMD_ON_STANDBY, 1);
+    sensor.write(txbuf, txlen);
+    txlen = PmsCreateCmd(txbuf, sizeof(txbuf), PMS_CMD_AUTO_MANUAL, 0);
+    sensor.write(txbuf, txlen);
+    PmsInit(rxbuf, sizeof(rxbuf));
 }
 
 static void mqtt_send(const char *topic, int value, const char *unit)
 {
     if (!mqttClient.connected()) {
         mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-        mqttClient.connect(esp_id);
+        mqttClient.connect(device_name);
     }
     if (mqttClient.connected()) {
         char string[64];
@@ -66,6 +81,16 @@ static void mqtt_send(const char *topic, int value, const char *unit)
 
 void loop(void)
 {
+    unsigned long ms = millis();
+    
+    // check measurement interval
+    if ((ms - last_sent) > MEASURE_INTERVAL_MS) {
+        txlen = PmsCreateCmd(txbuf, sizeof(txbuf), PMS_CMD_TRIG_MANUAL, 0);
+        sensor.write(txbuf, txlen);
+        last_sent = ms;
+    }
+
+    // check for incoming measurement data
     while (sensor.available()) {
         uint8_t c = sensor.read();
         if (PmsProcess(c)) {
