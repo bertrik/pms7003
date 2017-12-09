@@ -58,6 +58,10 @@ bool PmsProcess(uint8_t b)
         state.sum += b;
         if (b == 0x4D) {
             state.state = LENGTH1;
+        } else {
+            state.state = BEGIN1;
+            // retry
+            return PmsProcess(b);
         }
         break;
     // verify data length
@@ -131,8 +135,8 @@ void PmsParse(pms_meas_t *meas)
     meas->rawGt2_5um = get(state.buf, 18);
     meas->rawGt5_0um = get(state.buf, 20);
     meas->rawGt10_0um = get(state.buf, 22);
-    meas->version = state.buf[23];
-    meas->errorCode  = state.buf[24];
+    meas->version = state.buf[24];
+    meas->errorCode  = state.buf[25];
 }
 
 /**
