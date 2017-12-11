@@ -3,6 +3,10 @@
 
 #include "pms7003.h"
 
+// magic header bytes (actually ASCII 'B' and 'M')
+#define MAGIC1 0x42
+#define MAGIC2 0x4D
+
 // parsing state
 typedef enum {
     BEGIN1,
@@ -49,14 +53,14 @@ bool PmsProcess(uint8_t b)
     // wait for BEGIN1 byte
     case BEGIN1:
         state.sum = b;
-        if (b == 0x42) {
+        if (b == MAGIC1) {
             state.state = BEGIN2;
         }
         break;
     // wait for BEGIN2 byte
     case BEGIN2:
         state.sum += b;
-        if (b == 0x4D) {
+        if (b == MAGIC2) {
             state.state = LENGTH1;
         } else {
             state.state = BEGIN1;
@@ -154,8 +158,8 @@ int PmsCreateCmd(uint8_t *buf, int size, uint8_t cmd, uint16_t data)
     }
 
     int idx = 0;
-    buf[idx++] = 0x42;
-    buf[idx++] = 0x4d;
+    buf[idx++] = MAGIC1;
+    buf[idx++] = MAGIC2;
     buf[idx++] = cmd;
     buf[idx++] = (data >> 8) & 0xFF;
     buf[idx++] = (data >> 0) & 0xFF;
