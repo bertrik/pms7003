@@ -36,8 +36,7 @@ static bool test_rx(void)
 
     // send frame data
     bool ok;
-    uint8_t rxdata[32];
-    PmsInit(rxdata, sizeof(rxdata));
+    PmsInit();
     for (size_t i = 0; i < sizeof(frame); i++) {
         ok = PmsProcess(frame[i]);
     }

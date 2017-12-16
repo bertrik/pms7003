@@ -28,8 +28,6 @@ static PubSubClient mqttClient(wifiClient);
 
 static char device_name[20];
 
-static uint8_t rxbuf[32];
-static int rxlen;
 static uint8_t txbuf[8];
 static int txlen;
 
@@ -57,7 +55,7 @@ void setup(void)
     sensor.write(txbuf, txlen);
     txlen = PmsCreateCmd(txbuf, sizeof(txbuf), PMS_CMD_AUTO_MANUAL, 0);
     sensor.write(txbuf, txlen);
-    PmsInit(rxbuf, sizeof(rxbuf));
+    PmsInit();
 }
 
 static void mqtt_send(const char *topic, int value, const char *unit)

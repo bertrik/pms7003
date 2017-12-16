@@ -20,7 +20,7 @@ typedef enum {
 
 typedef struct {
     EState  state;
-    uint8_t *buf;
+    uint8_t buf[32];
     int     size;
     int     idx, len;
     uint16_t chk, sum;
@@ -30,14 +30,11 @@ static TState state;
 
 /**
     Initializes the measurement data state machine.
-    @param[in] buf the buffer to be used by the parser
-    @param[in] size the size of the buffer
  */
-void PmsInit(uint8_t *buf, int size)
+void PmsInit(void)
 {
     state.state = BEGIN1;
-    state.buf = buf;
-    state.size = size;
+    state.size = sizeof(state.buf);
     state.idx = state.len = 0;
     state.chk = state.sum = 0;
 }

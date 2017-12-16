@@ -19,7 +19,7 @@ typedef struct {
     uint8_t errorCode;
 } pms_meas_t;
 
-void PmsInit(uint8_t *buf, int size);
+void PmsInit(void);
 bool PmsProcess(uint8_t b);
 void PmsParse(pms_meas_t *meas);
 int  PmsCreateCmd(uint8_t *buf, int size, uint8_t cmd, uint16_t data);
