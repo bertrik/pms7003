@@ -14,12 +14,14 @@
 
 #define PIN_RX  D1
 #define PIN_TX  D2
+#define PIN_RST D3
+#define PIN_SET D4
 
-#define MEASURE_INTERVAL_MS 10000
+#define MEASURE_INTERVAL_MS 30000
 
-#define MQTT_HOST   "mosquitto.space.revspace.nl"
+#define MQTT_HOST   "aliensdetected.com"
 #define MQTT_PORT   1883
-#define MQTT_TOPIC  "revspace/sensors/dust/pms7003"
+#define MQTT_TOPIC  "bertrik/pms7003"
 
 static SoftwareSerial sensor(PIN_RX, PIN_TX);
 static WiFiClient wifiClient;
@@ -41,7 +43,7 @@ void setup(void)
     Serial.println("PMS7003 ESP reader");
 
     // get ESP id
-    sprintf(device_name, "PMS7003-%08X", ESP.getChipId());
+    sprintf(device_name, "PMS7003-%06X", ESP.getChipId());
     Serial.print("Device name: ");
     Serial.println(device_name);
 
@@ -49,13 +51,18 @@ void setup(void)
     Serial.println("Starting WIFI manager ...");
     wifiManager.autoConnect(device_name);
 
-    // initialize the sensor, put it in manual mode
+    // initialize the sensor
     sensor.begin(9600);
     txlen = PmsCreateCmd(txbuf, sizeof(txbuf), PMS_CMD_ON_STANDBY, 1);
     sensor.write(txbuf, txlen);
-    txlen = PmsCreateCmd(txbuf, sizeof(txbuf), PMS_CMD_AUTO_MANUAL, 0);
+    txlen = PmsCreateCmd(txbuf, sizeof(txbuf), PMS_CMD_AUTO_MANUAL, 1);
     sensor.write(txbuf, txlen);
     PmsInit();
+    
+    pinMode(PIN_RST, INPUT_PULLUP);
+    pinMode(PIN_SET, INPUT_PULLUP);
+    
+    Serial.println("setup() done");
 }
 
 static void mqtt_send(const char *topic, int value, const char *unit)
@@ -83,8 +90,10 @@ void loop(void)
     
     // check measurement interval
     if ((ms - last_sent) > MEASURE_INTERVAL_MS) {
-        txlen = PmsCreateCmd(txbuf, sizeof(txbuf), PMS_CMD_TRIG_MANUAL, 0);
-        sensor.write(txbuf, txlen);
+        // publish it
+        mqtt_send(MQTT_TOPIC "/PM1.0", meas.concPM1_0_amb, "ug/m3");
+        mqtt_send(MQTT_TOPIC "/PM2.5", meas.concPM2_5_amb, "ug/m3");
+        mqtt_send(MQTT_TOPIC "/PM10",  meas.concPM10_0_amb, "ug/m3");
         last_sent = ms;
     }
 
@@ -94,13 +103,6 @@ void loop(void)
         if (PmsProcess(c)) {
             // parse it
             PmsParse(&meas);
-            // publish it
-            mqtt_send(MQTT_TOPIC "/0.3",  meas.rawGt0_3um, "ug/m3");
-            mqtt_send(MQTT_TOPIC "/0.5",  meas.rawGt0_5um, "ug/m3");
-            mqtt_send(MQTT_TOPIC "/1.0",  meas.rawGt1_0um, "ug/m3");
-            mqtt_send(MQTT_TOPIC "/2.5",  meas.rawGt2_5um, "ug/m3");
-            mqtt_send(MQTT_TOPIC "/5.0",  meas.rawGt5_0um, "ug/m3");
-            mqtt_send(MQTT_TOPIC "/10.0", meas.rawGt10_0um,"ug/m3");
         }
     }
 }
