@@ -17,7 +17,7 @@
 #define PIN_RST D3
 #define PIN_SET D4
 
-#define MEASURE_INTERVAL_MS 30000
+#define MEASURE_INTERVAL_MS 10000
 
 #define MQTT_HOST   "aliensdetected.com"
 #define MQTT_PORT   1883
@@ -65,7 +65,7 @@ void setup(void)
     Serial.println("setup() done");
 }
 
-static void mqtt_send(const char *topic, int value, const char *unit)
+static void mqtt_send(const char *topic, int value)
 {
     if (!mqttClient.connected()) {
         mqttClient.setServer(MQTT_HOST, MQTT_PORT);
@@ -73,7 +73,7 @@ static void mqtt_send(const char *topic, int value, const char *unit)
     }
     if (mqttClient.connected()) {
         char string[64];
-        snprintf(string, sizeof(string), "%d %s", value, unit);
+        snprintf(string, sizeof(string), "%d", value);
         Serial.print("Publishing ");
         Serial.print(string);
         Serial.print(" to ");
@@ -91,9 +91,9 @@ void loop(void)
     // check measurement interval
     if ((ms - last_sent) > MEASURE_INTERVAL_MS) {
         // publish it
-        mqtt_send(MQTT_TOPIC "/PM1.0", meas.concPM1_0_amb, "ug/m3");
-        mqtt_send(MQTT_TOPIC "/PM2.5", meas.concPM2_5_amb, "ug/m3");
-        mqtt_send(MQTT_TOPIC "/PM10",  meas.concPM10_0_amb, "ug/m3");
+        mqtt_send(MQTT_TOPIC "/PM1_0", meas.concPM1_0_amb);
+        mqtt_send(MQTT_TOPIC "/PM2_5", meas.concPM2_5_amb);
+        mqtt_send(MQTT_TOPIC "/PM10",  meas.concPM10_0_amb);
         last_sent = ms;
     }
 
