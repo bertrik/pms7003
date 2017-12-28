@@ -65,23 +65,69 @@ void setup(void)
     Serial.println("setup() done");
 }
 
-static void mqtt_send(const char *topic, int value)
+static bool mqtt_send_string(const char *topic, const char *string)
 {
+    bool result = false;
     if (!mqttClient.connected()) {
         mqttClient.setServer(MQTT_HOST, MQTT_PORT);
         mqttClient.connect(device_name);
     }
     if (mqttClient.connected()) {
-        char string[64];
-        snprintf(string, sizeof(string), "%d", value);
         Serial.print("Publishing ");
         Serial.print(string);
         Serial.print(" to ");
         Serial.print(topic);
         Serial.print("...");
-        int result = mqttClient.publish(topic, string, true);
+        result = mqttClient.publish(topic, string, true);
         Serial.println(result ? "OK" : "FAIL");
     }
+    return result;
+}
+
+static bool mqtt_send_value(const char *topic, int value)
+{
+    char string[16];
+    snprintf(string, sizeof(string), "%d", value);
+    return mqtt_send_string(topic, string);
+}
+
+static bool mqtt_send_json(const char *topic, const pms_meas_t *m)
+{
+    static char json[128];
+    char tmp[128];
+    
+    // header
+    strcpy(json, "{");
+    
+    // CF1, "standard particle"
+    sprintf(tmp, "\"cf1\":{\"pm1_0\":%u,\"pm2_5\":%u,\"pm10\":%u},",
+            m->concPM1_0_CF1, m->concPM2_5_CF1, m->concPM10_0_CF1);
+    strcat(json, tmp);
+
+    // AMB, "standard atmosphere"
+    sprintf(tmp, "\"amb\":{\"pm1_0\":%u,\"pm2_5\":%u,\"pm10\":%u}",
+            m->concPM1_0_amb, m->concPM2_5_amb, m->concPM10_0_amb);
+    strcat(json, tmp);
+
+#if 0 // currently this makes the message too big, PubSubClient allows maximum 128 bytes (including internal header)
+    // raw particle counts
+    sprintf(tmp, "\"raw\":{\"gt0_3\":%u,\"gt0_5\":%u,\"gt1_0\":%u,\"gt2_5\":%u,\"gt5_0\":%u,\"gt10_0\":%u},",
+            m->rawGt0_3um, m->rawGt0_5um, m->rawGt1_0um, m->rawGt2_5um, m->rawGt5_0um, m->rawGt10_0um);
+    strcat(json, tmp);
+
+    // version
+    sprintf(tmp, "\"ver\":%u,", m->version);
+    strcat(json, tmp);
+    
+    // error code
+    sprintf(tmp, "\"err\":%u", m->errorCode);
+    strcat(json, tmp);
+#endif
+    
+    // footer
+    strcat(json, "}");
+
+    return mqtt_send_string(topic, json);
 }
 
 void loop(void)
@@ -91,9 +137,7 @@ void loop(void)
     // check measurement interval
     if ((ms - last_sent) > MEASURE_INTERVAL_MS) {
         // publish it
-        mqtt_send(MQTT_TOPIC "/PM1_0", meas.concPM1_0_amb);
-        mqtt_send(MQTT_TOPIC "/PM2_5", meas.concPM2_5_amb);
-        mqtt_send(MQTT_TOPIC "/PM10",  meas.concPM10_0_amb);
+        mqtt_send_json(MQTT_TOPIC "/json", &meas);
         last_sent = ms;
     }
 
