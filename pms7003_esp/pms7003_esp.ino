@@ -78,7 +78,7 @@ static bool mqtt_send_string(const char *topic, const char *string)
         Serial.print(" to ");
         Serial.print(topic);
         Serial.print("...");
-        result = mqttClient.publish(topic, string, true);
+        result = mqttClient.publish(topic, string);
         Serial.println(result ? "OK" : "FAIL");
     }
     return result;
