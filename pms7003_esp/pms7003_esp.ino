@@ -12,10 +12,18 @@
 #include <WiFiManager.h>
 #include <PubSubClient.h>
 
+#include <Wire.h>
+#include <BME280I2C.h>
+
+// PMS7003 pins
 #define PIN_RX  D1
 #define PIN_TX  D2
 #define PIN_RST D3
 #define PIN_SET D4
+
+// BME280 pins
+#define PIN_SDA D6
+#define PIN_SCL D7
 
 #define MEASURE_INTERVAL_MS 10000
 
@@ -33,8 +41,17 @@ static char device_name[20];
 static uint8_t txbuf[8];
 static int txlen;
 
-static pms_meas_t meas;
+typedef struct {
+    int temp;
+    int hum;
+    int pres;
+} bme_meas_t;
+
+static pms_meas_t pms_meas;
+static bme_meas_t bme_meas;
 static unsigned long last_sent;
+
+static BME280I2C bme280;
 
 void setup(void)
 {
@@ -61,6 +78,17 @@ void setup(void)
     
     pinMode(PIN_RST, INPUT_PULLUP);
     pinMode(PIN_SET, INPUT_PULLUP);
+    
+    pinMode(D8, OUTPUT);
+    digitalWrite(D8, 0);
+    
+    Wire.begin(PIN_SDA, PIN_SCL);
+    
+   while(!bme280.begin())
+   {
+      Serial.println("Could not find BME280 sensor!");
+      delay(1000);
+   }
     
     Serial.println("setup() done");
 }
@@ -91,7 +119,7 @@ static bool mqtt_send_value(const char *topic, int value)
     return mqtt_send_string(topic, string);
 }
 
-static bool mqtt_send_json(const char *topic, const pms_meas_t *m)
+static bool mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_meas_t *bme)
 {
     static char json[128];
     char tmp[128];
@@ -99,45 +127,41 @@ static bool mqtt_send_json(const char *topic, const pms_meas_t *m)
     // header
     strcpy(json, "{");
     
-    // CF1, "standard particle"
-    sprintf(tmp, "\"cf1\":{\"pm1_0\":%u,\"pm2_5\":%u,\"pm10\":%u},",
-            m->concPM1_0_CF1, m->concPM2_5_CF1, m->concPM10_0_CF1);
+    // AMB, "standard atmosphere" particle
+    sprintf(tmp, "\"pms7003\":{\"pm1_0\":%u,\"pm2_5\":%u,\"pm10\":%u},",
+            pms->concPM1_0_amb, pms->concPM2_5_amb, pms->concPM10_0_amb);
     strcat(json, tmp);
 
-    // AMB, "standard atmosphere"
-    sprintf(tmp, "\"amb\":{\"pm1_0\":%u,\"pm2_5\":%u,\"pm10\":%u}",
-            m->concPM1_0_amb, m->concPM2_5_amb, m->concPM10_0_amb);
+    // BME280, other meteorological data
+    sprintf(tmp, "\"bme280\":{\"t\":%d,\"rh\":%d,\"p\":%d}",
+            bme->temp, bme->hum, bme->pres);
     strcat(json, tmp);
 
-#if 0 // currently this makes the message too big, PubSubClient allows maximum 128 bytes (including internal header)
-    // raw particle counts
-    sprintf(tmp, "\"raw\":{\"gt0_3\":%u,\"gt0_5\":%u,\"gt1_0\":%u,\"gt2_5\":%u,\"gt5_0\":%u,\"gt10_0\":%u},",
-            m->rawGt0_3um, m->rawGt0_5um, m->rawGt1_0um, m->rawGt2_5um, m->rawGt5_0um, m->rawGt10_0um);
-    strcat(json, tmp);
-
-    // version
-    sprintf(tmp, "\"ver\":%u,", m->version);
-    strcat(json, tmp);
-    
-    // error code
-    sprintf(tmp, "\"err\":%u", m->errorCode);
-    strcat(json, tmp);
-#endif
-    
     // footer
     strcat(json, "}");
 
     return mqtt_send_string(topic, json);
 }
 
+
 void loop(void)
 {
+    float temp, hum, pres;
+    int temp_i, hum_i, pres_i;
+    char tmp[128];
+
     unsigned long ms = millis();
     
     // check measurement interval
     if ((ms - last_sent) > MEASURE_INTERVAL_MS) {
+        // read BME sensor
+        bme280.read(pres, temp, hum);
+        bme_meas.temp = (int)temp;
+        bme_meas.hum = (int)hum;
+        bme_meas.pres = (int)pres / 100;
+
         // publish it
-        mqtt_send_json(MQTT_TOPIC "/json", &meas);
+        mqtt_send_json(MQTT_TOPIC "/json", &pms_meas, &bme_meas);
         last_sent = ms;
     }
 
@@ -146,7 +170,7 @@ void loop(void)
         uint8_t c = sensor.read();
         if (PmsProcess(c)) {
             // parse it
-            PmsParse(&meas);
+            PmsParse(&pms_meas);
         }
     }
 }
