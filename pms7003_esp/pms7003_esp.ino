@@ -16,14 +16,14 @@
 #include <BME280I2C.h>
 
 // PMS7003 pins
-#define PIN_RX  D1
-#define PIN_TX  D2
+#define PIN_RX  D7
+#define PIN_TX  D8
 #define PIN_RST D3
 #define PIN_SET D4
 
 // BME280 pins
 #define PIN_SDA D6
-#define PIN_SCL D7
+#define PIN_SCL D5
 
 #define MEASURE_INTERVAL_MS 10000
 
@@ -78,17 +78,14 @@ void setup(void)
     
     pinMode(PIN_RST, INPUT_PULLUP);
     pinMode(PIN_SET, INPUT_PULLUP);
-    
-    pinMode(D8, OUTPUT);
-    digitalWrite(D8, 0);
-    
+
     Wire.begin(PIN_SDA, PIN_SCL);
     
-   while(!bme280.begin())
-   {
-      Serial.println("Could not find BME280 sensor!");
-      delay(1000);
-   }
+    while(!bme280.begin())
+    {
+        Serial.println("Could not find BME280 sensor!");
+        delay(1000);
+    }
     
     Serial.println("setup() done");
 }
