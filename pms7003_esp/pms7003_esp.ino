@@ -38,21 +38,19 @@ static PubSubClient mqttClient(wifiClient);
 
 static char device_name[20];
 
-static uint8_t txbuf[8];
-static int txlen;
-
 typedef struct {
     float temp;
     float hum;
     float pres;
 } bme_meas_t;
 
-static unsigned long last_sent;
-
 static BME280I2C bme280;
 
 void setup(void)
 {
+    uint8_t txbuf[8];
+    int txlen;
+
     // welcome message
     Serial.begin(115200);
     Serial.println("PMS7003 ESP reader");
@@ -141,8 +139,8 @@ static bool mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_m
 
 void loop(void)
 {
-    char tmp[128];
-    pms_meas_t pms_meas;
+    static pms_meas_t pms_meas;
+    static unsigned long last_sent;
     bme_meas_t bme_meas;
 
     unsigned long ms = millis();
