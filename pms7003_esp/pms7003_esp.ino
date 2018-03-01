@@ -42,13 +42,11 @@ static uint8_t txbuf[8];
 static int txlen;
 
 typedef struct {
-    int temp;
-    int hum;
-    int pres;
+    float temp;
+    float hum;
+    float pres;
 } bme_meas_t;
 
-static pms_meas_t pms_meas;
-static bme_meas_t bme_meas;
 static unsigned long last_sent;
 
 static BME280I2C bme280;
@@ -130,8 +128,8 @@ static bool mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_m
     strcat(json, tmp);
 
     // BME280, other meteorological data
-    sprintf(tmp, "\"bme280\":{\"t\":%d,\"rh\":%d,\"p\":%d}",
-            bme->temp, bme->hum, bme->pres);
+    sprintf(tmp, "\"bme280\":{\"t\":%.1f,\"rh\":%.0f,\"p\":%.1f}",
+            bme->temp, bme->hum, bme->pres / 100.0);
     strcat(json, tmp);
 
     // footer
@@ -143,19 +141,16 @@ static bool mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_m
 
 void loop(void)
 {
-    float temp, hum, pres;
-    int temp_i, hum_i, pres_i;
     char tmp[128];
+    pms_meas_t pms_meas;
+    bme_meas_t bme_meas;
 
     unsigned long ms = millis();
     
     // check measurement interval
     if ((ms - last_sent) > MEASURE_INTERVAL_MS) {
         // read BME sensor
-        bme280.read(pres, temp, hum);
-        bme_meas.temp = (int)temp;
-        bme_meas.hum = (int)hum;
-        bme_meas.pres = (int)pres / 100;
+        bme280.read(bme_meas.pres, bme_meas.temp, bme_meas.hum);
 
         // publish it
         mqtt_send_json(MQTT_TOPIC "/json", &pms_meas, &bme_meas);
