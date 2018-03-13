@@ -126,7 +126,7 @@ static bool mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_m
     strcat(json, tmp);
 
     // BME280, other meteorological data
-    sprintf(tmp, "\"bme280\":{\"t\":%.1f,\"rh\":%.0f,\"p\":%.1f}",
+    sprintf(tmp, "\"bme280\":{\"t\":%.1f,\"rh\":%.1f,\"p\":%.1f}",
             bme->temp, bme->hum, bme->pres / 100.0);
     strcat(json, tmp);
 
