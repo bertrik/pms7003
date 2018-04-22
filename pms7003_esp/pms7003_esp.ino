@@ -143,19 +143,24 @@ void loop(void)
 {
     static pms_meas_t pms_meas;
     static unsigned long last_sent;
+    static boolean have_data = false;
     bme_meas_t bme_meas;
 
     unsigned long ms = millis();
     
     // check measurement interval
     if ((ms - last_sent) > MEASURE_INTERVAL_MS) {
-        // read BME sensor
-        bme280.read(bme_meas.pres, bme_meas.temp, bme_meas.hum);
+        if (have_data) {
+            // read BME sensor
+            bme280.read(bme_meas.pres, bme_meas.temp, bme_meas.hum);
 
-        // publish it
-        char topic[32];
-        sprintf(topic, "%s/%s", MQTT_TOPIC, esp_id);
-        mqtt_send_json(topic, &pms_meas, &bme_meas);
+            // publish it
+            char topic[32];
+            sprintf(topic, "%s/%s", MQTT_TOPIC, esp_id);
+            mqtt_send_json(topic, &pms_meas, &bme_meas);
+        } else {
+            Serial.println("Not publishing, no measurement received from PMS7003!");
+        }
         last_sent = ms;
     }
 
@@ -165,6 +170,7 @@ void loop(void)
         if (PmsProcess(c)) {
             // parse it
             PmsParse(&pms_meas);
+            have_data = true;
         }
     }
 }
