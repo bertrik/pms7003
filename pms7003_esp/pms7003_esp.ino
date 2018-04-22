@@ -25,7 +25,7 @@
 #define PIN_SDA D6
 #define PIN_SCL D5
 
-#define MEASURE_INTERVAL_MS 10000
+#define MEASURE_INTERVAL_MS 30000
 
 #define MQTT_HOST   "aliensdetected.com"
 #define MQTT_PORT   1883
