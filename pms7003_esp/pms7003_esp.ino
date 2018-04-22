@@ -29,13 +29,14 @@
 
 #define MQTT_HOST   "aliensdetected.com"
 #define MQTT_PORT   1883
-#define MQTT_TOPIC  "bertrik/pms7003"
+#define MQTT_TOPIC  "bertrik/dust"
 
 static SoftwareSerial sensor(PIN_RX, PIN_TX);
 static WiFiClient wifiClient;
 static WiFiManager wifiManager;
 static PubSubClient mqttClient(wifiClient);
 
+static char esp_id[16];
 static char device_name[20];
 
 typedef struct {
@@ -56,7 +57,8 @@ void setup(void)
     Serial.println("PMS7003 ESP reader");
 
     // get ESP id
-    sprintf(device_name, "PMS7003-%06X", ESP.getChipId());
+    sprintf(esp_id, "%06X", ESP.getChipId());
+    sprintf(device_name, "PMS7003-%s", esp_id);
     Serial.print("Device name: ");
     Serial.println(device_name);
 
@@ -151,7 +153,9 @@ void loop(void)
         bme280.read(bme_meas.pres, bme_meas.temp, bme_meas.hum);
 
         // publish it
-        mqtt_send_json(MQTT_TOPIC "/json", &pms_meas, &bme_meas);
+        char topic[32];
+        sprintf(topic, "%s/%s", MQTT_TOPIC, esp_id);
+        mqtt_send_json(topic, &pms_meas, &bme_meas);
         last_sent = ms;
     }
 
