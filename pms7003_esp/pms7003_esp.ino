@@ -88,9 +88,8 @@ void setup(void)
     Serial.println("setup() done");
 }
 
-static bool mqtt_send_string(const char *topic, const char *string)
+static void mqtt_send_string(const char *topic, const char *string)
 {
-    bool result = false;
     if (!mqttClient.connected()) {
         mqttClient.setServer(MQTT_HOST, MQTT_PORT);
         mqttClient.connect(device_name);
@@ -101,20 +100,12 @@ static bool mqtt_send_string(const char *topic, const char *string)
         Serial.print(" to ");
         Serial.print(topic);
         Serial.print("...");
-        result = mqttClient.publish(topic, string);
+        bool result = mqttClient.publish(topic, string);
         Serial.println(result ? "OK" : "FAIL");
     }
-    return result;
 }
 
-static bool mqtt_send_value(const char *topic, int value)
-{
-    char string[16];
-    snprintf(string, sizeof(string), "%d", value);
-    return mqtt_send_string(topic, string);
-}
-
-static bool mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_meas_t *bme)
+static void mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_meas_t *bme)
 {
     static char json[128];
     char tmp[128];
@@ -135,7 +126,7 @@ static bool mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_m
     // footer
     strcat(json, "}");
 
-    return mqtt_send_string(topic, json);
+    mqtt_send_string(topic, json);
 }
 
 
