@@ -45,6 +45,12 @@ typedef struct {
     float pres;
 } bme_meas_t;
 
+typedef struct {
+    float pm10;
+    float pm2_5;
+    float pm1_0;
+} pms_dust_t;
+
 static BME280I2C bme280;
 
 void setup(void)
@@ -105,7 +111,7 @@ static void mqtt_send_string(const char *topic, const char *string)
     }
 }
 
-static void mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_meas_t *bme)
+static void mqtt_send_json(const char *topic, const pms_dust_t *pms, const bme_meas_t *bme)
 {
     static char json[128];
     char tmp[128];
@@ -114,8 +120,8 @@ static void mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_m
     strcpy(json, "{");
     
     // AMB, "standard atmosphere" particle
-    sprintf(tmp, "\"pms7003\":{\"pm1_0\":%u,\"pm2_5\":%u,\"pm10\":%u},",
-            pms->concPM1_0_amb, pms->concPM2_5_amb, pms->concPM10_0_amb);
+    sprintf(tmp, "\"pms7003\":{\"pm10\":%.1f,\"pm2_5\":%.1f,\"pm1_0\":%.1f},",
+            pms->pm10, pms->pm2_5, pms->pm1_0);
     strcat(json, tmp);
 
     // BME280, other meteorological data
@@ -129,26 +135,35 @@ static void mqtt_send_json(const char *topic, const pms_meas_t *pms, const bme_m
     mqtt_send_string(topic, json);
 }
 
-
 void loop(void)
 {
-    static pms_meas_t pms_meas;
-    static unsigned long last_sent;
-    static boolean have_data = false;
-    bme_meas_t bme_meas;
+    static pms_dust_t pms_meas_sum = {0.0, 0.0, 0.0};
+    static int pms_meas_count = 0;
+    static unsigned long last_sent = 0;
 
-    unsigned long ms = millis();
-    
     // check measurement interval
+    unsigned long ms = millis();
     if ((ms - last_sent) > MEASURE_INTERVAL_MS) {
-        if (have_data) {
+        if (pms_meas_count > 0) {
+            // average dust measurement
+            pms_meas_sum.pm10 /= pms_meas_count;
+            pms_meas_sum.pm2_5 /= pms_meas_count;
+            pms_meas_sum.pm1_0 /= pms_meas_count;
+
             // read BME sensor
+            bme_meas_t bme_meas;
             bme280.read(bme_meas.pres, bme_meas.temp, bme_meas.hum);
 
             // publish it
             char topic[32];
             sprintf(topic, "%s/%s", MQTT_TOPIC, esp_id);
-            mqtt_send_json(topic, &pms_meas, &bme_meas);
+            mqtt_send_json(topic, &pms_meas_sum, &bme_meas);
+
+            // reset sum
+            pms_meas_sum.pm10 = 0.0;
+            pms_meas_sum.pm2_5 = 0.0;
+            pms_meas_sum.pm1_0 = 0.0;
+            pms_meas_count = 0;
         } else {
             Serial.println("Not publishing, no measurement received from PMS7003!");
         }
@@ -160,8 +175,13 @@ void loop(void)
         uint8_t c = sensor.read();
         if (PmsProcess(c)) {
             // parse it
+            pms_meas_t pms_meas;
             PmsParse(&pms_meas);
-            have_data = true;
+            // sum it
+            pms_meas_sum.pm10 += pms_meas.concPM10_0_amb;
+            pms_meas_sum.pm2_5 += pms_meas.concPM2_5_amb;
+            pms_meas_sum.pm1_0 += pms_meas.concPM1_0_amb;
+            pms_meas_count++;
         }
     }
 }
