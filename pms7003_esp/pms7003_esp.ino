@@ -38,6 +38,7 @@ static PubSubClient mqttClient(wifiClient);
 
 static char esp_id[16];
 static char device_name[20];
+static char mqtt_topic[32];
 
 typedef struct {
     float temp;
@@ -67,6 +68,7 @@ void setup(void)
     sprintf(device_name, "PMS7003-%s", esp_id);
     Serial.print("Device name: ");
     Serial.println(device_name);
+    sprintf(mqtt_topic, "%s/%s", MQTT_TOPIC, esp_id);
 
     // connect to wifi or set up captive portal
     Serial.println("Starting WIFI manager ...");
@@ -111,7 +113,7 @@ static void mqtt_send_string(const char *topic, const char *string)
     }
 }
 
-static void mqtt_send_json(const char *topic, const pms_dust_t *pms, const bme_meas_t *bme)
+static void mqtt_send_json(const char *topic, int alive, const pms_dust_t *pms, const bme_meas_t *bme)
 {
     static char json[128];
     char tmp[128];
@@ -119,15 +121,21 @@ static void mqtt_send_json(const char *topic, const pms_dust_t *pms, const bme_m
     // header
     strcpy(json, "{");
     
-    // AMB, "standard atmosphere" particle
-    sprintf(tmp, "\"pms7003\":{\"pm10\":%.1f,\"pm2_5\":%.1f,\"pm1_0\":%.1f},",
-            pms->pm10, pms->pm2_5, pms->pm1_0);
-    strcat(json, tmp);
+    // send alive if nothing else to send
+    if (pms == NULL) {
+        sprintf(tmp, "\"alive\":%d", alive);
+        strcat(json, tmp);
+    } else {
+        // AMB, "standard atmosphere" particle
+        sprintf(tmp, "\"pms7003\":{\"pm10\":%.1f,\"pm2_5\":%.1f,\"pm1_0\":%.1f},",
+                pms->pm10, pms->pm2_5, pms->pm1_0);
+        strcat(json, tmp);
 
-    // BME280, other meteorological data
-    sprintf(tmp, "\"bme280\":{\"t\":%.1f,\"rh\":%.1f,\"p\":%.1f}",
-            bme->temp, bme->hum, bme->pres / 100.0);
-    strcat(json, tmp);
+        // BME280, other meteorological data
+        sprintf(tmp, "\"bme280\":{\"t\":%.1f,\"rh\":%.1f,\"p\":%.1f}",
+                bme->temp, bme->hum, bme->pres / 100.0);
+        strcat(json, tmp);
+    }
 
     // footer
     strcat(json, "}");
@@ -140,6 +148,7 @@ void loop(void)
     static pms_dust_t pms_meas_sum = {0.0, 0.0, 0.0};
     static int pms_meas_count = 0;
     static unsigned long last_sent = 0;
+    static unsigned long alive_count = 0;
 
     // check measurement interval
     unsigned long ms = millis();
@@ -155,9 +164,7 @@ void loop(void)
             bme280.read(bme_meas.pres, bme_meas.temp, bme_meas.hum);
 
             // publish it
-            char topic[32];
-            sprintf(topic, "%s/%s", MQTT_TOPIC, esp_id);
-            mqtt_send_json(topic, &pms_meas_sum, &bme_meas);
+            mqtt_send_json(mqtt_topic, alive_count, &pms_meas_sum, &bme_meas);
 
             // reset sum
             pms_meas_sum.pm10 = 0.0;
@@ -166,8 +173,12 @@ void loop(void)
             pms_meas_count = 0;
         } else {
             Serial.println("Not publishing, no measurement received from PMS7003!");
+            
+            // publish only the alive counter
+            mqtt_send_json(mqtt_topic, alive_count, NULL, NULL);
         }
         last_sent = ms;
+        alive_count++;
     }
 
     // check for incoming measurement data
