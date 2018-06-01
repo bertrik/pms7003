@@ -12,18 +12,11 @@
 #include <WiFiManager.h>
 #include <PubSubClient.h>
 
-#include <Wire.h>
-#include <BME280I2C.h>
-
 // PMS7003 pins
 #define PIN_RX  D7
 #define PIN_TX  D8
 #define PIN_RST D3
 #define PIN_SET D4
-
-// BME280 pins
-#define PIN_SDA D6
-#define PIN_SCL D5
 
 #define MEASURE_INTERVAL_MS 30000
 
@@ -41,18 +34,10 @@ static char device_name[20];
 static char mqtt_topic[32];
 
 typedef struct {
-    float temp;
-    float hum;
-    float pres;
-} bme_meas_t;
-
-typedef struct {
     float pm10;
     float pm2_5;
     float pm1_0;
 } pms_dust_t;
-
-static BME280I2C bme280;
 
 void setup(void)
 {
@@ -85,14 +70,6 @@ void setup(void)
     pinMode(PIN_RST, INPUT_PULLUP);
     pinMode(PIN_SET, INPUT_PULLUP);
 
-    Wire.begin(PIN_SDA, PIN_SCL);
-    
-    while(!bme280.begin())
-    {
-        Serial.println("Could not find BME280 sensor!");
-        delay(1000);
-    }
-    
     Serial.println("setup() done");
 }
 
@@ -113,7 +90,7 @@ static void mqtt_send_string(const char *topic, const char *string)
     }
 }
 
-static void mqtt_send_json(const char *topic, int alive, const pms_dust_t *pms, const bme_meas_t *bme)
+static void mqtt_send_json(const char *topic, int alive, const pms_dust_t *pms)
 {
     static char json[128];
     char tmp[128];
@@ -127,15 +104,11 @@ static void mqtt_send_json(const char *topic, int alive, const pms_dust_t *pms, 
         strcat(json, tmp);
     } else {
         // AMB, "standard atmosphere" particle
-        sprintf(tmp, "\"pms7003\":{\"pm10\":%.1f,\"pm2_5\":%.1f,\"pm1_0\":%.1f},",
+        sprintf(tmp, "\"pms7003\":{\"pm10\":%.1f,\"pm2_5\":%.1f,\"pm1_0\":%.1f}",
                 pms->pm10, pms->pm2_5, pms->pm1_0);
         strcat(json, tmp);
-
-        // BME280, other meteorological data
-        sprintf(tmp, "\"bme280\":{\"t\":%.1f,\"rh\":%.1f,\"p\":%.1f}",
-                bme->temp, bme->hum, bme->pres / 100.0);
-        strcat(json, tmp);
     }
+    strcat(json, ",\"bme280\":{}");
 
     // footer
     strcat(json, "}");
@@ -159,12 +132,7 @@ void loop(void)
             pms_meas_sum.pm2_5 /= pms_meas_count;
             pms_meas_sum.pm1_0 /= pms_meas_count;
 
-            // read BME sensor
-            bme_meas_t bme_meas;
-            bme280.read(bme_meas.pres, bme_meas.temp, bme_meas.hum);
-
-            // publish it
-            mqtt_send_json(mqtt_topic, alive_count, &pms_meas_sum, &bme_meas);
+            mqtt_send_json(mqtt_topic, alive_count, &pms_meas_sum);
 
             // reset sum
             pms_meas_sum.pm10 = 0.0;
@@ -175,7 +143,7 @@ void loop(void)
             Serial.println("Not publishing, no measurement received from PMS7003!");
             
             // publish only the alive counter
-            mqtt_send_json(mqtt_topic, alive_count, NULL, NULL);
+            mqtt_send_json(mqtt_topic, alive_count, NULL);
         }
         last_sent = ms;
         alive_count++;
