@@ -150,6 +150,9 @@ void loop(void)
     static unsigned long last_sent = 0;
     static unsigned long alive_count = 0;
 
+    // keep MQTT alive
+    mqttClient.loop();
+
     // check measurement interval
     unsigned long ms = millis();
     if ((ms - last_sent) > MEASURE_INTERVAL_MS) {
