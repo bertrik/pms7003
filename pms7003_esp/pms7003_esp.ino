@@ -120,19 +120,22 @@ static void mqtt_send_json(const char *topic, int alive, const pms_dust_t *pms, 
     
     // header
     strcpy(json, "{");
-    
-    // send alive if nothing else to send
-    if (pms == NULL) {
-        sprintf(tmp, "\"alive\":%d", alive);
-        strcat(json, tmp);
-    } else {
+
+    // always send alive
+    sprintf(tmp, "\"alive\":%d", alive);
+    strcat(json, tmp);
+
+    // PMS7003
+    if (pms != NULL) {
         // AMB, "standard atmosphere" particle
-        sprintf(tmp, "\"pms7003\":{\"pm10\":%.1f,\"pm2_5\":%.1f,\"pm1_0\":%.1f},",
+        sprintf(tmp, ",\"pms7003\":{\"pm10\":%.1f,\"pm2_5\":%.1f,\"pm1_0\":%.1f}",
                 pms->pm10, pms->pm2_5, pms->pm1_0);
         strcat(json, tmp);
+    }
 
-        // BME280, other meteorological data
-        sprintf(tmp, "\"bme280\":{\"t\":%.1f,\"rh\":%.1f,\"p\":%.1f}",
+    // BME280, other meteorological data
+    if (bme != NULL) {
+        sprintf(tmp, ",\"bme280\":{\"t\":%.1f,\"rh\":%.1f,\"p\":%.1f}",
                 bme->temp, bme->hum, bme->pres / 100.0);
         strcat(json, tmp);
     }
@@ -167,6 +170,7 @@ void loop(void)
             bme280.read(bme_meas.pres, bme_meas.temp, bme_meas.hum);
 
             // publish it
+            alive_count++;
             mqtt_send_json(mqtt_topic, alive_count, &pms_meas_sum, &bme_meas);
 
             // reset sum
@@ -181,7 +185,6 @@ void loop(void)
             mqtt_send_json(mqtt_topic, alive_count, NULL, NULL);
         }
         last_sent = ms;
-        alive_count++;
     }
 
     // check for incoming measurement data
