@@ -98,8 +98,9 @@ void setup(void)
 static void mqtt_send_string(const char *topic, const char *string)
 {
     if (!mqttClient.connected()) {
+        Serial.println("Connecting to MQTT server " MQTT_HOST);
         mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-        mqttClient.connect(device_name);
+        mqttClient.connect(device_name, topic, 0, true, "{\"alive\":0}");
     }
     if (mqttClient.connected()) {
         Serial.print("Publishing ");
