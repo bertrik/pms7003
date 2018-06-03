@@ -39,6 +39,8 @@ static PubSubClient mqttClient(wifiClient);
 static char esp_id[16];
 static char device_name[20];
 static char mqtt_topic[32];
+static boolean have_bme280;
+static BME280I2C bme280;
 
 typedef struct {
     float temp;
@@ -51,8 +53,6 @@ typedef struct {
     float pm2_5;
     float pm1_0;
 } pms_dust_t;
-
-static BME280I2C bme280;
 
 void setup(void)
 {
@@ -87,10 +87,9 @@ void setup(void)
 
     Wire.begin(PIN_SDA, PIN_SCL);
     
-    while(!bme280.begin())
-    {
-        Serial.println("Could not find BME280 sensor!");
-        delay(1000);
+    have_bme280 = bme280.begin();
+    if (have_bme280) {
+        Serial.println("Found BME280 sensor.");
     }
     
     Serial.println("setup() done");
@@ -166,12 +165,18 @@ void loop(void)
             pms_meas_sum.pm1_0 /= pms_meas_count;
 
             // read BME sensor
-            bme_meas_t bme_meas;
-            bme280.read(bme_meas.pres, bme_meas.temp, bme_meas.hum);
+            bme_meas_t *bme280_p;
+            if (have_bme280) {
+                bme_meas_t bme_meas;
+                bme280.read(bme_meas.pres, bme_meas.temp, bme_meas.hum);
+                bme280_p = &bme_meas;
+            } else {
+                bme280_p = NULL;
+            }
 
             // publish it
             alive_count++;
-            mqtt_send_json(mqtt_topic, alive_count, &pms_meas_sum, &bme_meas);
+            mqtt_send_json(mqtt_topic, alive_count, &pms_meas_sum, bme280_p);
 
             // reset sum
             pms_meas_sum.pm10 = 0.0;
