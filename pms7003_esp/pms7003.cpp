@@ -119,6 +119,15 @@ static uint16_t get(uint8_t *buf, int idx)
 }
 
 /**
+    Get length of packet's data frame.
+    @return data frame length of packet.
+ */
+int PmsGetDataLen()
+{
+    return state.len;
+}
+
+/**
     Parses a complete measurement data frame into a structure.
     @param[out] meas the parsed measurement data
  */
@@ -138,6 +147,19 @@ void PmsParse(pms_meas_t *meas)
     meas->rawGt10_0um = get(state.buf, 22);
     meas->version = state.buf[24];
     meas->errorCode  = state.buf[25];
+}
+
+/**
+    Parses a 2-byte response frame.
+    For command PMS_CMD_AUTO_MANUAL (0xe1) returns command (1b) and data (1b) the same as in query frame.
+    @return 16bit response.
+ */
+uint16_t PmsParse16()
+{
+    if(state.len != 2)
+        return 0;
+
+    return get(state.buf, 0);
 }
 
 /**

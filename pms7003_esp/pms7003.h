@@ -21,7 +21,9 @@ typedef struct {
 
 void PmsInit(void);
 bool PmsProcess(uint8_t b);
+int PmsGetDataLen();
 void PmsParse(pms_meas_t *meas);
+uint16_t PmsParse16();
 int  PmsCreateCmd(uint8_t *buf, int size, uint8_t cmd, uint16_t data);
 
 // known command bytes
